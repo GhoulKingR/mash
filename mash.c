@@ -3,13 +3,75 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <termios.h>
+#include <unistd.h>
 
-ssize_t getcmdline(char** line, size_t* len) {
-    printf("$ ");
-    ssize_t read = getline(line, len, stdin);
-    (*line)[read - 1] = '\0';
-    return read;
+#define PREFIX "\e[2K\r$ %s"
+
+size_t getcmdline(char** result) {
+    size_t line_size = 10;
+    size_t text_size = 0;
+    char* line = malloc(line_size * sizeof(char));
+    memset(line, '\0', line_size * sizeof(char));
+
+    printf(PREFIX, "");
+
+    
+    while(true) {
+        if ((text_size + 1) == line_size) {
+            line_size *= 2;
+            line = realloc(line, line_size * sizeof(char));
+        }
+
+        char c = getchar();
+        if (c == '\n') {
+            printf("\n");
+            break;
+        } else if (c == '\x04' || c == '\x03') {
+            free(line);
+            return -1;
+        } else if (c == '\b' || c == '\x7f') {
+            if (text_size > 0) {
+                line[text_size - 1] = '\0';
+                text_size--;
+                printf(PREFIX, line);
+                continue;
+            }
+        } else if (c == '\e') {
+            char c1 = getchar();
+            char c2 = getchar();
+            if (c1 == '[') {
+                switch (c2) {
+                    // up
+                    case 'A':
+                        break;
+
+                    // down
+                    case 'B':
+                        break;
+
+                    // right
+                    case 'C':
+                        break;
+
+                    // left
+                    case 'D':
+                        break;
+                }
+                continue;
+            }
+        }
+
+        line[text_size] = c;
+        line[text_size + 1] = '\0';
+        text_size++;
+        printf(PREFIX, line);
+    }
+
+    *result = realloc(line, text_size * sizeof(char));
+    return text_size;
 }
+
 
 size_t parseargs(char* line, char*** args) {
     size_t len = strlen(line);
@@ -59,16 +121,37 @@ size_t parseargs(char* line, char*** args) {
                     collected_arg_size = 0;
                     memset(collected_arg, '\0', allocated_text_size);
                 }
+            } else if (line[i] == '\0') {
+                free(collected_arg);
             }
 
             continue;
         }
 
+        if (escape) {
+            switch (line[i]) {
+                case 'n':
+                    collected_arg[collected_arg_size] = '\n';
+                    collected_arg_size++;
+                    break;
 
-        collected_arg[collected_arg_size] = line[i];
-        collected_arg_size++;
-        escape = false;
+                case 'b':
+                    collected_arg[collected_arg_size] = '\b';
+                    collected_arg_size++;
+                    break;
+
+                default:
+                    collected_arg[collected_arg_size] = line[i];
+                    collected_arg_size++;
+                    break;
+            }
+            escape = false;
+        } else {
+            collected_arg[collected_arg_size] = line[i];
+            collected_arg_size++;
+        }
     }
+
 
     if (added > 0) {
         *args = realloc(*args, added * sizeof(char*));
@@ -91,15 +174,37 @@ void cleanup_args(char*** args, size_t count) {
     }
 }
 
+char *line = NULL;
+
+struct termios original, noecho;
+
+void exit_handler() {
+    printf("\n");
+    tcsetattr(STDIN_FILENO, TCSANOW, &original);
+    if (line != NULL)
+        free(line);
+}
+
 int main(int argc, char** argv) {
+    int result = atexit(exit_handler);
+
+    if (result != 0) {
+        printf("Could not register exit handler!");
+        exit(EXIT_FAILURE);
+    }
+    
+    tcgetattr(STDIN_FILENO, &original);
+    noecho = original;
+    noecho.c_lflag &= ~(ECHO | ICANON | ISIG);
+    tcsetattr(STDIN_FILENO, TCSANOW, &noecho);
+
     if (argc > 1) {
         printf("You ran this with some arguments\n");
     } else {
-        char *line = NULL;
         size_t len = 0;
         ssize_t read;
 
-        while (getcmdline(&line, &len) != -1) {
+        while (getcmdline(&line) != -1) {
             char** args = NULL;
             size_t cli_len = parseargs(line, &args);
 
@@ -108,8 +213,7 @@ int main(int argc, char** argv) {
 
             cleanup_args(&args, cli_len);
         }
-
-        free(line);
-        return 0;
     }
+
+    return EXIT_SUCCESS;
 }
