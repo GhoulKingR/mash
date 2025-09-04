@@ -7,6 +7,9 @@
 #include <unistd.h>
 
 #define PREFIX "\e[2K\r$ %s"
+#define prefix_withb(line, backspace) printf(PREFIX "\e[%dD", line, backspace);
+
+// TODO: Add support for up and down arrow keys for history
 
 size_t getcmdline(char** result) {
     size_t line_size = 10;
@@ -15,8 +18,8 @@ size_t getcmdline(char** result) {
     memset(line, '\0', line_size * sizeof(char));
 
     printf(PREFIX, "");
+    int backspace = 0;
 
-    
     while(true) {
         if ((text_size + 1) == line_size) {
             line_size *= 2;
@@ -32,40 +35,68 @@ size_t getcmdline(char** result) {
             return -1;
         } else if (c == '\b' || c == '\x7f') {
             if (text_size > 0) {
+                if (backspace > 0) {
+                    for (int i = text_size - backspace - 1; i <= text_size; i++) {
+                        char t = line[i];
+                        line[i] = line[i + 1];
+                        line[i + 1] = t;
+                    }
+                }
                 line[text_size - 1] = '\0';
                 text_size--;
-                printf(PREFIX, line);
+
+                if (backspace == 0) {
+                    printf(PREFIX, line);
+                } else {
+                    prefix_withb(line, backspace);
+                }
                 continue;
             }
         } else if (c == '\e') {
             char c1 = getchar();
             char c2 = getchar();
             if (c1 == '[') {
-                switch (c2) {
+                if (c2 == 'A') {
                     // up
-                    case 'A':
-                        break;
-
+                } else if (c2 == 'B') {
                     // down
-                    case 'B':
-                        break;
-
+                } else if (c2 == 'C') {
                     // right
-                    case 'C':
-                        break;
+                    if (backspace > 0)
+                        backspace--;
 
+                    if (backspace > 0) {
+                        prefix_withb(line, backspace);
+                    } else {
+                        printf(PREFIX, line);
+                    }
+                } else if (c2 == 'D') {
                     // left
-                    case 'D':
-                        break;
+                    if (backspace < text_size)
+                        backspace++;
+                    prefix_withb(line, backspace);
                 }
                 continue;
             }
         }
 
-        line[text_size] = c;
-        line[text_size + 1] = '\0';
-        text_size++;
-        printf(PREFIX, line);
+        // change the add text logic
+        if (backspace > 0) {
+            char tmp = c;
+            for (int i = text_size - backspace; i <= text_size; i++) {
+                char t = line[i];
+                line[i] = tmp;
+                tmp = t;
+            }
+            line[text_size + 1] = '\0';
+            text_size++;
+            prefix_withb(line, backspace)
+        } else {
+            line[text_size] = c;
+            line[text_size + 1] = '\0';
+            text_size++;
+            printf(PREFIX, line);
+        }
     }
 
     *result = realloc(line, text_size * sizeof(char));
