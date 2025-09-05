@@ -16,8 +16,6 @@
 #define prefix_withb(line, backspace) printf(PREFIX "\e[%dD", line, backspace);
 #define HISTORY_MAX_SIZE 500
 
-// TODO: Add support for up and down arrow keys for history
-
 class History {
     std::deque<std::string> items;
     int position = 0;
@@ -36,7 +34,7 @@ public:
     }
 
     bool move_down() {
-        if (position < items.size() - 1) { // TODO: fix this causing segmentation fault
+        if (items.size() > 0 && position < items.size() - 1) {
             position++;
             return true;
         }
