@@ -19,9 +19,13 @@
 
 #define HISTORY_MAX_SIZE 500
 
+struct Configs {
+    
+} configs;
+
 class History {
     std::deque<std::string> items;
-    int position = 0;
+    size_t position = 0;
 
 public:
     std::string get_current() {
@@ -54,7 +58,7 @@ public:
 } history;
 
 void print(std::string content, int backspace) {
-    std::string backspace_text = backspace > 0 ? "\e[" + std::to_string(backspace) + "D" : ""; 
+    std::string backspace_text = backspace > 0 ? "\e[" + std::to_string(backspace) + "D" : "";
     std::cout << "\e[2K\r$ " << content << backspace_text;
 }
 
@@ -87,7 +91,7 @@ std::string getcmdline() {
             size_t text_size = line.size();
             if (text_size > 0) {
                 if (backspace > 0) {
-                    for (int i = text_size - backspace - 1; i < text_size - 1; i++) {
+                    for (size_t i = text_size - backspace - 1; i < text_size - 1; i++) {
                         char t = line[i];
                         line[i] = line[i + 1];
                         line[i + 1] = t;
@@ -134,7 +138,7 @@ std::string getcmdline() {
             char tmp = c;
             size_t text_size = line.size();
             line += ' ';
-            for (int i = text_size - backspace; i <= text_size; i++) {
+            for (size_t i = text_size - backspace; i <= text_size; i++) {
                 char t = line[i];
                 line[i] = tmp;
                 tmp = t;
@@ -205,18 +209,21 @@ void exit_handler() {
     tcsetattr(STDIN_FILENO, TCSANOW, &original);
 }
 
-class Commands {
-public:
-    void exec(std::vector<std::string>& args) {
-        tcsetattr(STDIN_FILENO, TCSANOW, &original);
-        if (args[0] == "exit") {
-            exit(EXIT_SUCCESS);
-        } else if (args[0] == "echo") {
-            std::cout << args[1] << std::endl;
-        }
-        tcsetattr(STDIN_FILENO, TCSANOW, &noecho);
+void cmd_exec(std::vector<std::string>& args) {
+    tcsetattr(STDIN_FILENO, TCSANOW, &original);
+    if (args[0] == "exit") {
+        exit(EXIT_SUCCESS);
+    } else if (args[0] == "echo") {
+        std::cout << args[1] << std::endl;
+    } else {
+        // unset the terminal configurations
+        // look for the command in path
+        // fork the process
+        // execute the executable it has found
+        // return to normal
     }
-} cmd;
+    tcsetattr(STDIN_FILENO, TCSANOW, &noecho);
+}
 
 int main(int argc, char** argv) {
     signal(SIGINT, exit);
@@ -246,7 +253,7 @@ int main(int argc, char** argv) {
             std::vector<std::string> args = parseargs(line);
 
             if (!args.empty()) {
-                cmd.exec(args);
+                cmd_exec(args);
             }
         }
     }
