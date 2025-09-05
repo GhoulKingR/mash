@@ -1,61 +1,10 @@
-#include <csignal>
-#include <cstddef>
-#include <cstdio>
-#include <cstdlib>
-#include <ctime>
-#include <ctype.h>
-#include <deque>
 #include <iostream>
-#include <ostream>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-#include <string>
-#include <termios.h>
-#include <unistd.h>
-#include <vector>
+#include <signal.h>
 
-#define HISTORY_MAX_SIZE 500
+#include "history.hpp"
+#include "cmd.hpp"
+#include "configs.hpp"
 
-struct Configs {
-    
-} configs;
-
-class History {
-    std::deque<std::string> items;
-    size_t position = 0;
-
-public:
-    std::string get_current() {
-        return items[position];
-    }
-
-    bool move_up() {
-        if (position > 0) {
-            position--;
-            return true;
-        }
-        return false;
-    }
-
-    bool move_down() {
-        if (items.size() > 0 && position < items.size() - 1) {
-            position++;
-            return true;
-        }
-        return false;
-    }
-
-    void add_item(std::string new_item) {
-        items.push_back(new_item);
-        while (items.size() > HISTORY_MAX_SIZE) {
-            items.pop_front();
-        }
-        position = items.size();
-    }
-} history;
 
 void print(std::string content, int backspace) {
     std::string backspace_text = backspace > 0 ? "\e[" + std::to_string(backspace) + "D" : "";
@@ -72,6 +21,7 @@ void print(std::string& content) {
 
 std::string getcmdline() {
     std::string line = "";
+    auto& history = History::getInstance();
 
     print();
     int backspace = 0;
@@ -203,48 +153,28 @@ std::vector<std::string> parseargs(std::string& line) {
     return args;
 }
 
-struct termios original, noecho;
 
 void exit_handler() {
-    tcsetattr(STDIN_FILENO, TCSANOW, &original);
-}
-
-void cmd_exec(std::vector<std::string>& args) {
-    tcsetattr(STDIN_FILENO, TCSANOW, &original);
-    if (args[0] == "exit") {
-        exit(EXIT_SUCCESS);
-    } else if (args[0] == "echo") {
-        std::cout << args[1] << std::endl;
-    } else {
-        // unset the terminal configurations
-        // look for the command in path
-        // fork the process
-        // execute the executable it has found
-        // return to normal
-    }
-    tcsetattr(STDIN_FILENO, TCSANOW, &noecho);
+    Configs::getInstance().set_raw_mode(false);
 }
 
 int main(int argc, char** argv) {
     signal(SIGINT, exit);
-    int result = atexit(exit_handler);
+    
+    Configs& configs = Configs::getInstance();
+    Command& cmd = Command::getInstance();
 
+    int result = atexit(exit_handler);
     if (result != 0) {
         printf("Could not register exit handler!");
         exit(EXIT_FAILURE);
     }
     
-    tcgetattr(STDIN_FILENO, &original);
-    noecho = original;
-    noecho.c_lflag &= ~(ECHO | ICANON | ISIG);
-    tcsetattr(STDIN_FILENO, TCSANOW, &noecho);
+    configs.set_raw_mode(true);
 
     if (argc > 1) {
         printf("You ran this with some arguments\n");
     } else {
-        size_t len = 0;
-        ssize_t read;
-
         while (true) {
             std::string line = getcmdline();
             if (line.size() == 0)
@@ -253,7 +183,7 @@ int main(int argc, char** argv) {
             std::vector<std::string> args = parseargs(line);
 
             if (!args.empty()) {
-                cmd_exec(args);
+                cmd.exec(args);
             }
         }
     }
