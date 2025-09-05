@@ -1,3 +1,4 @@
 # Mash (Mini-bASH)
 
-A mini bash-like shell. That can do some things now.
+A bash-like shell. Mash is short for **M**ini-b**ASH**.
+
