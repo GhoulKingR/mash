@@ -4,6 +4,7 @@
 #include <ctime>
 #include <ctype.h>
 #include <deque>
+#include <iostream>
 #include <sstream>
 #include <stddef.h>
 #include <stdio.h>
@@ -15,8 +16,6 @@
 #include <unistd.h>
 #include <vector>
 
-#define PREFIX "\e[2K\r$ %s"
-#define prefix_withb(line, backspace) printf(PREFIX "\e[%dD", line, backspace);
 #define HISTORY_MAX_SIZE 500
 
 class History {
@@ -53,10 +52,23 @@ public:
     }
 } history;
 
+void print(std::string content, int backspace) {
+    std::string backspace_text = backspace > 0 ? "\e[" + std::to_string(backspace) + "D" : ""; 
+    std::cout << "\e[2K\r$ " << content << backspace_text;
+}
+
+void print() {
+    return print("", 0);
+}
+
+void print(std::string content) {
+    return print(content, 0);
+}
+
 std::string getcmdline() {
     std::string line = "";
 
-    printf(PREFIX, "");
+    print();
     int backspace = 0;
 
     while(true) {
@@ -83,11 +95,7 @@ std::string getcmdline() {
 
                 line.pop_back();
 
-                if (backspace == 0) {
-                    printf(PREFIX, line.c_str());
-                } else {
-                    prefix_withb(line.c_str(), backspace);
-                }
+                print(line, backspace);
                 continue;
             }
         } else if (c == '\e') {
@@ -98,27 +106,23 @@ std::string getcmdline() {
                     if (history.move_up()) {
                         line = history.get_current();
                         backspace = 0;
-                        printf(PREFIX, line.c_str());
+                        print(line);
                     }
                 } else if (c2 == 'B') { // down
                     if (history.move_down()) {
                         line = history.get_current();
                         backspace = 0;
-                        printf(PREFIX, line.c_str());
+                        print(line);
                     }
                 } else if (c2 == 'C') { // right
                     if (backspace > 0)
                         backspace--;
 
-                    if (backspace > 0) {
-                        prefix_withb(line.c_str(), backspace);
-                    } else {
-                        printf(PREFIX, line.c_str());
-                    }
+                    print(line, backspace);
                 } else if (c2 == 'D') { // left
                     if (backspace < line.size())
                         backspace++;
-                    prefix_withb(line.c_str(), backspace);
+                    print(line, backspace);
                 }
                 continue;
             }
@@ -134,11 +138,10 @@ std::string getcmdline() {
                 line[i] = tmp;
                 tmp = t;
             }
-            prefix_withb(line.c_str(), backspace)
         } else if (isprint(c)) {
             line += c;
-            printf(PREFIX, line.c_str());
         }
+        print(line, backspace);
     }
 
     history.add_item(line);
