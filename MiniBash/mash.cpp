@@ -158,6 +158,32 @@ void exit_handler() {
     Configs::getInstance().set_raw_mode(false);
 }
 
+void fill_envs(std::string& line) {
+    Configs& configs = Configs::getInstance();
+    for (auto envs : configs.envariables) {
+        std::string lookfor = "$" + envs.first;
+        std::string replacewith = envs.second;
+        
+        // escape all spaces in replacewith
+        size_t pr = replacewith.find(" ");
+        while (pr != std::string::npos) {
+            replacewith.replace(pr, 1, "\\s");
+            pr = replacewith.find(" ");
+        }
+        pr = replacewith.find("\\s");
+        while (pr != std::string::npos) {
+            replacewith.replace(pr, 2, "\\ ");
+            pr = replacewith.find("\\s");
+        }
+                
+        size_t pos = line.find(lookfor);
+        while (pos != std::string::npos) {
+            line.replace(pos, lookfor.size(), replacewith);
+            pos = line.find(lookfor);
+        }
+    }
+}
+
 int main(int argc, char** argv) {
     signal(SIGINT, exit);
     
@@ -177,9 +203,12 @@ int main(int argc, char** argv) {
     } else {
         while (true) {
             std::string line = getcmdline();
-            if (line.size() == 0)
+            if (line.size() == 0) {
                 printf("\n");
+                continue;
+            }
 
+            fill_envs(line);
             std::vector<std::string> args = parseargs(line);
 
             if (!args.empty()) {

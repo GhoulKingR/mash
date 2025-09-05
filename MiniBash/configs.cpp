@@ -38,14 +38,14 @@ void Configs::load_envs() {
 }
 
 void Configs::add_env(std::string name) {
-    putenv((char*) name.c_str());
-    
     std::string line (name);
     size_t pos = line.find("=");
+    
     if (pos != line.npos) {
         std::string variable = line.substr(0, pos);
         std::string value = line.substr(pos+1, line.size());
         envariables[variable] = value;
+        setenv(variable.c_str(), value.c_str(), 1);
     }
 }
 
