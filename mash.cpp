@@ -1,54 +1,90 @@
+#include <csignal>
+#include <cstddef>
+#include <cstdio>
+#include <ctype.h>
+#include <deque>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <string>
 #include <termios.h>
 #include <unistd.h>
 
 #define PREFIX "\e[2K\r$ %s"
 #define prefix_withb(line, backspace) printf(PREFIX "\e[%dD", line, backspace);
+#define HISTORY_MAX_SIZE 500
 
 // TODO: Add support for up and down arrow keys for history
 
-size_t getcmdline(char** result) {
-    size_t line_size = 10;
-    size_t text_size = 0;
-    char* line = malloc(line_size * sizeof(char));
-    memset(line, '\0', line_size * sizeof(char));
+class History {
+    std::deque<std::string> items;
+    int position = 0;
+
+public:
+    std::string get_current() {
+        return items[position];
+    }
+
+    bool move_up() {
+        if (position > 0) {
+            position--;
+            return true;
+        }
+        return false;
+    }
+
+    bool move_down() {
+        if (position < items.size() - 1) { // TODO: fix this causing segmentation fault
+            position++;
+            return true;
+        }
+        return false;
+    }
+
+    void add_item(std::string new_item) {
+        items.push_back(new_item);
+        while (items.size() > HISTORY_MAX_SIZE) {
+            items.pop_front();
+        }
+        position = items.size();
+    }
+} history;
+
+std::string getcmdline() {
+    std::string line = "";
 
     printf(PREFIX, "");
     int backspace = 0;
 
     while(true) {
-        if ((text_size + 1) == line_size) {
-            line_size *= 2;
-            line = realloc(line, line_size * sizeof(char));
-        }
-
         char c = getchar();
         if (c == '\n') {
             printf("\n");
             break;
-        } else if (c == '\x04' || c == '\x03') {
-            free(line);
-            return -1;
+        } else if (c == '\x04') {
+            raise(SIGINT);
+            return "";
+        } else if (c == '\x03') {
+            return "";
         } else if (c == '\b' || c == '\x7f') {
+            size_t text_size = line.size();
             if (text_size > 0) {
                 if (backspace > 0) {
-                    for (int i = text_size - backspace - 1; i <= text_size; i++) {
+                    for (int i = text_size - backspace - 1; i < text_size - 1; i++) {
                         char t = line[i];
                         line[i] = line[i + 1];
                         line[i + 1] = t;
                     }
                 }
-                line[text_size - 1] = '\0';
-                text_size--;
+
+                line.pop_back();
 
                 if (backspace == 0) {
-                    printf(PREFIX, line);
+                    printf(PREFIX, line.c_str());
                 } else {
-                    prefix_withb(line, backspace);
+                    prefix_withb(line.c_str(), backspace);
                 }
                 continue;
             }
@@ -56,62 +92,68 @@ size_t getcmdline(char** result) {
             char c1 = getchar();
             char c2 = getchar();
             if (c1 == '[') {
-                if (c2 == 'A') {
-                    // up
-                } else if (c2 == 'B') {
-                    // down
+                if (c2 == 'A') { // up
+                    if (history.move_up()) {
+                        line = history.get_current();
+                        backspace = 0;
+                        printf(PREFIX, line.c_str());
+                    }
+                } else if (c2 == 'B') { // down
+                    if (history.move_down()) {
+                        line = history.get_current();
+                        backspace = 0;
+                        printf(PREFIX, line.c_str());
+                    }
                 } else if (c2 == 'C') {
                     // right
                     if (backspace > 0)
                         backspace--;
 
                     if (backspace > 0) {
-                        prefix_withb(line, backspace);
+                        prefix_withb(line.c_str(), backspace);
                     } else {
-                        printf(PREFIX, line);
+                        printf(PREFIX, line.c_str());
                     }
                 } else if (c2 == 'D') {
                     // left
-                    if (backspace < text_size)
+                    if (backspace < line.size())
                         backspace++;
-                    prefix_withb(line, backspace);
+                    prefix_withb(line.c_str(), backspace);
                 }
                 continue;
             }
         }
 
         // change the add text logic
-        if (backspace > 0) {
+        if (backspace > 0 && isprint(c)) {
             char tmp = c;
+            size_t text_size = line.size();
+            line += ' ';
             for (int i = text_size - backspace; i <= text_size; i++) {
                 char t = line[i];
                 line[i] = tmp;
                 tmp = t;
             }
-            line[text_size + 1] = '\0';
-            text_size++;
-            prefix_withb(line, backspace)
-        } else {
-            line[text_size] = c;
-            line[text_size + 1] = '\0';
-            text_size++;
-            printf(PREFIX, line);
+            prefix_withb(line.c_str(), backspace)
+        } else if (isprint(c)) {
+            line += c;
+            printf(PREFIX, line.c_str());
         }
     }
 
-    *result = realloc(line, text_size * sizeof(char));
-    return text_size;
+    history.add_item(line);
+    return line;
 }
 
 
-size_t parseargs(char* line, char*** args) {
+size_t parseargs(const char* line, char*** args) {
     size_t len = strlen(line);
     size_t allocated_size = 5;
-    *args = malloc(allocated_size * sizeof(char*));
+    *args = (char**) malloc(allocated_size * sizeof(char*));
     size_t added = 0;
 
     size_t allocated_text_size = 10;
-    char* collected_arg = malloc(allocated_text_size * sizeof(char));
+    char* collected_arg = (char*) malloc(allocated_text_size * sizeof(char));
     size_t collected_arg_size = 0;
     memset(collected_arg, '\0', allocated_text_size);
 
@@ -131,24 +173,24 @@ size_t parseargs(char* line, char*** args) {
 
         if (added == allocated_size) {
             allocated_size *= 2;
-            *args = realloc(*args, allocated_size * sizeof(char*));
+            *args = (char**) realloc(*args, allocated_size * sizeof(char*));
         }
 
         if (collected_arg_size == allocated_text_size) {
             allocated_text_size *= 2;
-            collected_arg = realloc(collected_arg, allocated_text_size * sizeof(char));
+            collected_arg = (char*) realloc(collected_arg, allocated_text_size * sizeof(char));
         }
 
         if ((line[i] == ' ' && !escape && !quotes) || line[i] == '\0') {
             if (collected_arg_size > 0) {
                 collected_arg[collected_arg_size] = '\0';
                 collected_arg_size++;
-                (*args)[added] = realloc(collected_arg, collected_arg_size * sizeof(char));
+                (*args)[added] = (char*) realloc(collected_arg, collected_arg_size * sizeof(char));
                 added++;
 
                 if (line[i] == ' ') {
                     allocated_text_size = 10;
-                    collected_arg = malloc(allocated_text_size * sizeof(char));
+                    collected_arg = (char*) malloc(allocated_text_size * sizeof(char));
                     collected_arg_size = 0;
                     memset(collected_arg, '\0', allocated_text_size);
                 }
@@ -185,7 +227,7 @@ size_t parseargs(char* line, char*** args) {
 
 
     if (added > 0) {
-        *args = realloc(*args, added * sizeof(char*));
+        *args = (char**) realloc(*args, added * sizeof(char*));
     } else {
         free(*args);
         *args = NULL;
@@ -205,18 +247,15 @@ void cleanup_args(char*** args, size_t count) {
     }
 }
 
-char *line = NULL;
 
 struct termios original, noecho;
 
 void exit_handler() {
-    printf("\n");
     tcsetattr(STDIN_FILENO, TCSANOW, &original);
-    if (line != NULL)
-        free(line);
 }
 
 int main(int argc, char** argv) {
+    signal(SIGINT, exit);
     int result = atexit(exit_handler);
 
     if (result != 0) {
@@ -235,9 +274,13 @@ int main(int argc, char** argv) {
         size_t len = 0;
         ssize_t read;
 
-        while (getcmdline(&line) != -1) {
+        while (true) {
+            std::string line = getcmdline();
+            if (line.size() == 0)
+                printf("\n");
+
             char** args = NULL;
-            size_t cli_len = parseargs(line, &args);
+            size_t cli_len = parseargs(line.c_str(), &args);
 
             if (args != NULL)
                 printf("First argument: %s\n", args[0]);

@@ -6,4 +6,4 @@ add_compile_options(
     "$<$<CONFIG:Debug>:-DDEBUG_MODE>" # Define a preprocessor macro for Debug builds
 )
 
-add_executable(${PROJECT_NAME} mash.c)
+add_executable(${PROJECT_NAME} mash.cpp)
