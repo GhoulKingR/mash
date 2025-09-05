@@ -1,11 +1,12 @@
 #include <csignal>
 #include <cstddef>
 #include <cstdio>
+#include <cstdlib>
 #include <ctime>
 #include <ctype.h>
 #include <deque>
 #include <iostream>
-#include <sstream>
+#include <ostream>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,7 +62,7 @@ void print() {
     return print("", 0);
 }
 
-void print(std::string content) {
+void print(std::string& content) {
     return print(content, 0);
 }
 
@@ -148,15 +149,50 @@ std::string getcmdline() {
     return line;
 }
 
-
-std::vector<std::string> parseargs(std::string line) {
+std::vector<std::string> parseargs(std::string& line) {
     std::vector<std::string> args;
-    std::stringstream liness(line);
-    std::string tmp;
+    std::string collected_arg = "";
+    size_t len = line.size();
 
-    while (std::getline(liness, tmp, ' ')) {
-        if (tmp.size() > 0) {
-            args.push_back(tmp);
+    bool escape = false;
+    bool quotes = false;
+
+    for (size_t i = 0; i < len + 1; i++) {
+        if (line[i] == '\\') {
+            escape = true;
+            continue;
+        }
+
+        if (line[i] == '"' && !escape) {
+            quotes = !quotes;
+            continue;
+        }
+
+        if ((line[i] == ' ' && !escape && !quotes) || line[i] == '\0') {
+            if (collected_arg.size() > 0) {
+                args.push_back(collected_arg);
+                collected_arg = "";
+            }
+            continue;
+        }
+
+        if (escape) {
+            switch (line[i]) {
+                case 'n':
+                    collected_arg += '\n';
+                    break;
+
+                case 'b':
+                    collected_arg += '\b';
+                    break;
+
+                default:
+                    collected_arg += line[i];
+                    break;
+            }
+            escape = false;
+        } else {
+            collected_arg += line[i];
         }
     }
 
@@ -168,6 +204,19 @@ struct termios original, noecho;
 void exit_handler() {
     tcsetattr(STDIN_FILENO, TCSANOW, &original);
 }
+
+class Commands {
+public:
+    void exec(std::vector<std::string>& args) {
+        tcsetattr(STDIN_FILENO, TCSANOW, &original);
+        if (args[0] == "exit") {
+            exit(EXIT_SUCCESS);
+        } else if (args[0] == "echo") {
+            std::cout << args[1] << std::endl;
+        }
+        tcsetattr(STDIN_FILENO, TCSANOW, &noecho);
+    }
+} cmd;
 
 int main(int argc, char** argv) {
     signal(SIGINT, exit);
@@ -196,8 +245,9 @@ int main(int argc, char** argv) {
 
             std::vector<std::string> args = parseargs(line);
 
-            if (!args.empty())
-                printf("First argument: %s\n", args[0].c_str());
+            if (!args.empty()) {
+                cmd.exec(args);
+            }
         }
     }
 
