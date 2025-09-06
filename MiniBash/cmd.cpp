@@ -46,6 +46,14 @@ void Command::exec(std::vector<std::string>& args) {
         std::cout << args[1] << std::endl;
     } else if (args[0] == "set") {
         configs.add_env(args[1]);
+    } else if (args[0] == "cd") {
+        fs::path new_dir = args[1];
+        try {
+            fs::current_path(new_dir);
+            configs.add_env("PWD=" + fs::current_path().string());
+        } catch (const fs::filesystem_error& e) {
+            std::cerr << e.what() << std::endl;
+        }
     } else {
         bool found = false;
         

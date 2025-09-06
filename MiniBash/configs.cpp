@@ -7,10 +7,12 @@
 #include <termios.h>
 #include <unistd.h>
 #include <sstream>
+#include <filesystem>
 
 #include "configs.hpp"
 
 extern char** environ;
+namespace fs = std::filesystem;
 
 Configs& Configs::getInstance() {
     static Configs instance;
@@ -19,6 +21,7 @@ Configs& Configs::getInstance() {
 
 Configs::Configs() {
     load_envs();
+    add_env("PWD=" + fs::current_path().string());
     tcgetattr(STDIN_FILENO, &original);
     noecho = original;
     noecho.c_lflag &= ~(ECHO | ICANON | ISIG);
