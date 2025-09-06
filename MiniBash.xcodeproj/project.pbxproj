@@ -20,6 +20,7 @@
 
 /* Begin PBXFileReference section */
 		7FBD14C02E6B365D00922F03 /* MiniBash */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = MiniBash; sourceTree = BUILT_PRODUCTS_DIR; };
+		7FE168482E6C240600E821D1 /* libboost_regex.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libboost_regex.a; path = ../../../../opt/homebrew/Cellar/boost/1.89.0/lib/libboost_regex.a; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -45,6 +46,7 @@
 			isa = PBXGroup;
 			children = (
 				7FBD14C22E6B365D00922F03 /* MiniBash */,
+				7FE168472E6C240500E821D1 /* Frameworks */,
 				7FBD14C12E6B365D00922F03 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -55,6 +57,14 @@
 				7FBD14C02E6B365D00922F03 /* MiniBash */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		7FE168472E6C240500E821D1 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				7FE168482E6C240600E821D1 /* libboost_regex.a */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -245,6 +255,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				HEADER_SEARCH_PATHS = /opt/homebrew/include;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -253,6 +264,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				HEADER_SEARCH_PATHS = /opt/homebrew/include;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

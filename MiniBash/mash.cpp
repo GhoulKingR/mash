@@ -1,5 +1,7 @@
 #include <iostream>
 #include <signal.h>
+//#include <boost/regex.hpp>
+//#include <boost/algorithm/string_regex.hpp>
 
 #include "history.hpp"
 #include "cmd.hpp"
@@ -160,6 +162,7 @@ void exit_handler() {
 
 void fill_envs(std::string& line) {
     Configs& configs = Configs::getInstance();
+    
     for (auto envs : configs.envariables) {
         std::string lookfor = "$" + envs.first;
         std::string replacewith = envs.second;
@@ -178,10 +181,14 @@ void fill_envs(std::string& line) {
                 
         size_t pos = line.find(lookfor);
         while (pos != std::string::npos) {
-            line.replace(pos, lookfor.size(), replacewith);
-            pos = line.find(lookfor);
+            if (pos == 0 || line[pos - 1] != '\\')
+                line.replace(pos, lookfor.size(), replacewith);
+            pos = line.find(lookfor, pos + 1);
         }
     }
+    
+//    boost::regex pattern ("(?<!\\\\)\\$\\w+");
+//    boost::algorithm::erase_regex(line, pattern);
 }
 
 int main(int argc, char** argv) {
